@@ -1,0 +1,182 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// 営業日報システム - データモデル
+// ============================================
+
+// 営業マスタ
+model Employee {
+  id         Int      @id @default(autoincrement()) @map("employee_id")
+  name       String   @db.VarChar(50)
+  email      String   @unique @db.VarChar(255)
+  password   String   @db.VarChar(255) // bcryptハッシュ
+  department String?  @db.VarChar(100)
+  position   String?  @db.VarChar(100)
+  role       Role     @default(SALES)
+  managerId  Int?     @map("manager_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // リレーション
+  manager         Employee?     @relation("ManagerToSubordinates", fields: [managerId], references: [id], onDelete: SetNull)
+  subordinates    Employee[]    @relation("ManagerToSubordinates")
+  dailyReports    DailyReport[]
+  customers       Customer[]
+  comments        Comment[]
+
+  @@index([email])
+  @@index([managerId])
+  @@map("employees")
+}
+
+// ロール定義
+enum Role {
+  SALES   // 営業
+  MANAGER // 上長
+  ADMIN   // 管理者
+}
+
+// 顧客マスタ
+model Customer {
+  id                 Int      @id @default(autoincrement()) @map("customer_id")
+  customerName       String   @map("customer_name") @db.VarChar(100)
+  address            String?  @db.VarChar(255)
+  phone              String?  @db.VarChar(20)
+  email              String?  @db.VarChar(255)
+  assignedEmployeeId Int      @map("assigned_employee_id")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  // リレーション
+  assignedEmployee Employee      @relation(fields: [assignedEmployeeId], references: [id], onDelete: Restrict)
+  visitRecords     VisitRecord[]
+
+  @@index([assignedEmployeeId])
+  @@map("customers")
+}
+
+// 日報
+model DailyReport {
+  id         Int      @id @default(autoincrement()) @map("report_id")
+  employeeId Int      @map("employee_id")
+  reportDate DateTime @map("report_date") @db.Date
+  problem    String?  @db.Text // 課題・相談（最大1000文字）
+  plan       String?  @db.Text // 明日の予定（最大1000文字）
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // リレーション
+  employee     Employee      @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  visitRecords VisitRecord[]
+  comments     Comment[]
+
+  // 1人の営業につき1日1件の日報のみ作成可能
+  @@unique([employeeId, reportDate], name: "unique_employee_report_date")
+  @@index([employeeId])
+  @@index([reportDate])
+  @@map("daily_reports")
+}
+
+// 訪問記録
+model VisitRecord {
+  id           Int      @id @default(autoincrement()) @map("visit_id")
+  reportId     Int      @map("report_id")
+  customerId   Int      @map("customer_id")
+  visitContent String   @map("visit_content") @db.Text // 最大500文字
+  visitTime    String   @map("visit_time") @db.VarChar(5) // HH:MM形式
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // リレーション
+  dailyReport DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  customer    Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  @@index([reportId])
+  @@index([customerId])
+  @@map("visit_records")
+}
+
+// コメント
+model Comment {
+  id             Int      @id @default(autoincrement()) @map("comment_id")
+  reportId       Int      @map("report_id")
+  commenterId    Int      @map("commenter_id")
+  commentContent String   @map("comment_content") @db.Text // 最大500文字
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // リレーション
+  dailyReport DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  commenter   Employee    @relation(fields: [commenterId], references: [id], onDelete: Restrict)
+
+  @@index([reportId])
+  @@index([commenterId])
+  @@map("comments")
+}
+
+// ============================================
+// NextAuth.js用モデル
+// ============================================
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+
+  accounts Account[]
+  sessions Session[]
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
