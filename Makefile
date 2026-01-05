@@ -1,4 +1,4 @@
-.PHONY: help install dev build start test lint format clean docker-build docker-run deploy setup-gcloud create-artifact-registry migrate-db
+.PHONY: help install dev build start test lint format clean docker-up docker-down docker-logs docker-ps docker-clean docker-restart docker-build docker-run deploy setup-gcloud create-artifact-registry migrate-db
 
 # Variables
 PROJECT_ID := mmaruyama
@@ -66,7 +66,32 @@ prisma-seed: ## Seed database
 clean: ## Clean build artifacts
 	rm -rf .next node_modules coverage .husky/_
 
-# Docker commands
+# Docker Compose commands (local development)
+docker-up: ## Start Docker Compose services (PostgreSQL + Adminer)
+	docker-compose up -d
+	@echo "Waiting for PostgreSQL to be ready..."
+	@sleep 3
+	@echo "PostgreSQL is ready!"
+	@echo "- PostgreSQL: localhost:5432"
+	@echo "- Adminer (DB Admin): http://localhost:8080"
+
+docker-down: ## Stop Docker Compose services
+	docker-compose down
+
+docker-logs: ## View Docker Compose logs
+	docker-compose logs -f
+
+docker-ps: ## Show running Docker containers
+	docker-compose ps
+
+docker-clean: ## Stop and remove all Docker containers and volumes
+	docker-compose down -v
+	@echo "All containers and volumes removed"
+
+docker-restart: ## Restart Docker Compose services
+	docker-compose restart
+
+# Docker commands (application container)
 docker-build: ## Build Docker image locally
 	docker build -t $(SERVICE_NAME):latest .
 
