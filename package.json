@@ -60,7 +60,8 @@
     "husky": "^8.0.3",
     "lint-staged": "^15.0.0",
     "autoprefixer": "^10.4.16",
-    "postcss": "^8.4.32"
+    "postcss": "^8.4.32",
+    "tsx": "^4.7.0"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
