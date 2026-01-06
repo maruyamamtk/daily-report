@@ -147,12 +147,22 @@ async function main() {
   });
 
   // 訪問記録のシードデータ作成
+  // 訪問時刻を動的に生成（yesterdayをベースに時刻を設定）
+  const visit1Time = new Date(yesterday);
+  visit1Time.setHours(10, 0, 0, 0);
+
+  const visit2Time = new Date(yesterday);
+  visit2Time.setHours(14, 30, 0, 0);
+
+  const visit3Time = new Date(yesterday);
+  visit3Time.setHours(11, 0, 0, 0);
+
   await prisma.visitRecord.create({
     data: {
       reportId: report1.id,
       customerId: customer1.id,
       visitContent: '新製品の提案を行いました。好感触で、来週再度訪問することになりました。',
-      visitTime: new Date('2024-01-01T10:00:00'),
+      visitTime: visit1Time,
     },
   });
 
@@ -161,7 +171,7 @@ async function main() {
       reportId: report1.id,
       customerId: customer2.id,
       visitContent: '契約更新の打ち合わせ。価格について再検討が必要との回答を得ました。',
-      visitTime: new Date('2024-01-01T14:30:00'),
+      visitTime: visit2Time,
     },
   });
 
@@ -170,7 +180,7 @@ async function main() {
       reportId: report2.id,
       customerId: customer3.id,
       visitContent: 'システム導入の進捗確認。順調に進んでおり、来月には稼働予定です。',
-      visitTime: new Date('2024-01-01T11:00:00'),
+      visitTime: visit3Time,
     },
   });
 
