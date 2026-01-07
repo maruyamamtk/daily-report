@@ -1,3 +1,7 @@
+// Validate environment variables at build time and runtime
+// This will throw an error if any required env vars are missing or invalid
+import("./lib/env.ts");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
