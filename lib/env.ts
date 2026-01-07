@@ -53,10 +53,13 @@ const clientSchema = z.object({
 /**
  * Validate environment variables
  * This function is called at module load time to ensure all required variables are present
+ *
+ * @param envVars - Environment variables to validate (defaults to process.env)
+ * @returns Validated server and client environment variables
  */
-const validateEnv = () => {
+export const validateEnv = (envVars: NodeJS.ProcessEnv = process.env) => {
   // Validate server-side variables
-  const serverEnv = serverSchema.safeParse(process.env);
+  const serverEnv = serverSchema.safeParse(envVars);
 
   if (!serverEnv.success) {
     console.error("❌ Invalid server environment variables:");
@@ -65,7 +68,7 @@ const validateEnv = () => {
   }
 
   // Validate client-side variables
-  const clientEnv = clientSchema.safeParse(process.env);
+  const clientEnv = clientSchema.safeParse(envVars);
 
   if (!clientEnv.success) {
     console.error("❌ Invalid client environment variables:");
