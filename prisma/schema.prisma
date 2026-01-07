@@ -28,7 +28,7 @@ model Employee {
   subordinates Employee[]     @relation("EmployeeHierarchy")
   dailyReports DailyReport[]
   customers    Customer[]
-  comments     Comment[]
+  comments     Comment[]      @relation("EmployeeComments")
 
   @@map("employees")
 }
@@ -45,7 +45,7 @@ model Customer {
   updatedAt          DateTime @updatedAt @map("updated_at")
 
   // Relations
-  assignedEmployee Employee       @relation(fields: [assignedEmployeeId], references: [id])
+  assignedEmployee Employee       @relation(fields: [assignedEmployeeId], references: [id], onDelete: Restrict)
   visitRecords     VisitRecord[]
 
   @@map("customers")
@@ -62,7 +62,7 @@ model DailyReport {
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   // Relations
-  employee     Employee      @relation(fields: [employeeId], references: [id])
+  employee     Employee      @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   visitRecords VisitRecord[]
   comments     Comment[]
 
@@ -82,7 +82,7 @@ model VisitRecord {
 
   // Relations
   dailyReport DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  customer    Customer    @relation(fields: [customerId], references: [id])
+  customer    Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
 
   @@map("visit_records")
 }
@@ -97,7 +97,7 @@ model Comment {
 
   // Relations
   dailyReport DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  commenter   Employee    @relation(fields: [commenterId], references: [id])
+  commenter   Employee    @relation("EmployeeComments", fields: [commenterId], references: [id], onDelete: Restrict)
 
   @@map("comments")
 }
