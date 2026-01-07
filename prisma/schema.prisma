@@ -99,7 +99,7 @@ model Customer {
   phone              String?        @db.VarChar(20)
   email              String?        @db.VarChar(255)
   assignedEmployeeId Int
-  assignedEmployee   Employee       @relation(fields: [assignedEmployeeId], references: [id])
+  assignedEmployee   Employee       @relation(fields: [assignedEmployeeId], references: [id], onDelete: Restrict)
   visitRecords       VisitRecord[]
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
@@ -116,7 +116,7 @@ model DailyReport {
   reportDate   DateTime       @db.Date
   problem      String?        @db.Text // 課題・相談（最大1000文字）
   plan         String?        @db.Text // 明日の予定（最大1000文字）
-  employee     Employee       @relation(fields: [employeeId], references: [id])
+  employee     Employee       @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   visitRecords VisitRecord[]
   comments     Comment[]
   createdAt    DateTime       @default(now())
@@ -136,7 +136,7 @@ model VisitRecord {
   visitContent String      @db.Text // 訪問内容（最大500文字）
   visitTime    DateTime    @db.Time
   report       DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  customer     Customer    @relation(fields: [customerId], references: [id])
+  customer     Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
   createdAt    DateTime    @default(now())
 
   @@index([reportId])
@@ -151,7 +151,7 @@ model Comment {
   commenterId    Int
   commentContent String      @db.Text // コメント内容（最大500文字）
   report         DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  commenter      Employee    @relation(fields: [commenterId], references: [id])
+  commenter      Employee    @relation(fields: [commenterId], references: [id], onDelete: Restrict)
   createdAt      DateTime    @default(now())
 
   @@index([reportId])
