@@ -10,94 +10,151 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 営業マスタ（Employee）
+// NextAuth.js Models
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          String    @default("営業") // 営業, 上長, 管理者
+  employeeId    Int?      @unique
+  employee      Employee? @relation(fields: [employeeId], references: [id])
+  accounts      Account[]
+  sessions      Session[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// Business Models
+
+// 営業マスタ（社員情報）
 model Employee {
-  id         Int      @id @default(autoincrement()) @map("employee_id")
-  name       String   @db.VarChar(50)
-  email      String   @unique @db.VarChar(255)
-  password   String   @db.VarChar(255)
-  department String   @db.VarChar(100)
-  position   String   @db.VarChar(100)
-  role       String   @default("営業") @db.VarChar(20) // 営業、上長、管理者
-  managerId  Int?     @map("manager_id")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id                  Int            @id @default(autoincrement())
+  name                String         @db.VarChar(50)
+  email               String         @unique @db.VarChar(255)
+  department          String         @db.VarChar(100)
+  position            String         @db.VarChar(100)
+  managerId           Int?
+  manager             Employee?      @relation("EmployeeHierarchy", fields: [managerId], references: [id])
+  subordinates        Employee[]     @relation("EmployeeHierarchy")
+  dailyReports        DailyReport[]
+  customers           Customer[]
+  comments            Comment[]
+  user                User?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
 
-  // Relations
-  manager      Employee?      @relation("EmployeeHierarchy", fields: [managerId], references: [id])
-  subordinates Employee[]     @relation("EmployeeHierarchy")
-  dailyReports DailyReport[]
-  customers    Customer[]
-  comments     Comment[]      @relation("EmployeeComments")
-
+  @@index([managerId])
+  @@index([email])
   @@map("employees")
 }
 
-// 顧客マスタ（Customer）
+// 顧客マスタ
 model Customer {
-  id                 Int      @id @default(autoincrement()) @map("customer_id")
-  customerName       String   @map("customer_name") @db.VarChar(100)
-  address            String?  @db.VarChar(255)
-  phone              String?  @db.VarChar(20)
-  email              String?  @db.VarChar(255)
-  assignedEmployeeId Int      @map("assigned_employee_id")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  id                 Int            @id @default(autoincrement())
+  customerName       String         @db.VarChar(100)
+  address            String?        @db.VarChar(255)
+  phone              String?        @db.VarChar(20)
+  email              String?        @db.VarChar(255)
+  assignedEmployeeId Int
+  assignedEmployee   Employee       @relation(fields: [assignedEmployeeId], references: [id])
+  visitRecords       VisitRecord[]
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
-  // Relations
-  assignedEmployee Employee       @relation(fields: [assignedEmployeeId], references: [id], onDelete: Restrict)
-  visitRecords     VisitRecord[]
-
+  @@index([assignedEmployeeId])
+  @@index([customerName])
   @@map("customers")
 }
 
-// 日報（DailyReport）
+// 日報
 model DailyReport {
-  id         Int      @id @default(autoincrement()) @map("report_id")
-  employeeId Int      @map("employee_id")
-  reportDate DateTime @map("report_date") @db.Date
-  problem    String?  @db.Text // 課題・相談
-  plan       String?  @db.Text // 明日の予定
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  employee     Employee      @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  id           Int            @id @default(autoincrement())
+  employeeId   Int
+  reportDate   DateTime       @db.Date
+  problem      String?        @db.Text // 課題・相談（最大1000文字）
+  plan         String?        @db.Text // 明日の予定（最大1000文字）
+  employee     Employee       @relation(fields: [employeeId], references: [id])
   visitRecords VisitRecord[]
   comments     Comment[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
-  // 1人の営業につき1日1件の日報のみ
-  @@unique([employeeId, reportDate])
+  @@unique([employeeId, reportDate], name: "employee_report_date_unique")
+  @@index([employeeId])
+  @@index([reportDate])
   @@map("daily_reports")
 }
 
-// 訪問記録（VisitRecord）
+// 訪問記録
 model VisitRecord {
-  id           Int      @id @default(autoincrement()) @map("visit_id")
-  reportId     Int      @map("report_id")
-  customerId   Int      @map("customer_id")
-  visitContent String   @map("visit_content") @db.Text
-  visitTime    DateTime @map("visit_time") @db.Time
-  createdAt    DateTime @default(now()) @map("created_at")
+  id           Int         @id @default(autoincrement())
+  reportId     Int
+  customerId   Int
+  visitContent String      @db.Text // 訪問内容（最大500文字）
+  visitTime    DateTime    @db.Time
+  report       DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  customer     Customer    @relation(fields: [customerId], references: [id])
+  createdAt    DateTime    @default(now())
 
-  // Relations
-  dailyReport DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  customer    Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
-
+  @@index([reportId])
+  @@index([customerId])
   @@map("visit_records")
 }
 
-// コメント（Comment）
+// コメント
 model Comment {
-  id             Int      @id @default(autoincrement()) @map("comment_id")
-  reportId       Int      @map("report_id")
-  commenterId    Int      @map("commenter_id")
-  commentContent String   @map("comment_content") @db.Text
-  createdAt      DateTime @default(now()) @map("created_at")
+  id             Int         @id @default(autoincrement())
+  reportId       Int
+  commenterId    Int
+  commentContent String      @db.Text // コメント内容（最大500文字）
+  report         DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  commenter      Employee    @relation(fields: [commenterId], references: [id])
+  createdAt      DateTime    @default(now())
 
-  // Relations
-  dailyReport DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  commenter   Employee    @relation("EmployeeComments", fields: [commenterId], references: [id], onDelete: Restrict)
-
+  @@index([reportId])
+  @@index([commenterId])
   @@map("comments")
 }
