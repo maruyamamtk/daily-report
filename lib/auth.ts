@@ -9,7 +9,6 @@
 
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
@@ -18,9 +17,6 @@ import { env } from "@/lib/env";
  * NextAuth configuration options
  */
 export const authOptions: NextAuthOptions = {
-  // Use Prisma adapter for database sessions (optional, we're using JWT)
-  adapter: PrismaAdapter(prisma),
-
   // Configure session strategy (JWT for stateless auth)
   session: {
     strategy: "jwt",
@@ -66,14 +62,10 @@ export const authOptions: NextAuthOptions = {
           },
         });
 
-        // Check if user exists
-        if (!user) {
+        // Check if user exists and has a password set
+        // Use the same error message to prevent account enumeration attacks
+        if (!user || !user.password) {
           throw new Error("メールアドレスまたはパスワードが正しくありません");
-        }
-
-        // Check if user has a password set
-        if (!user.password) {
-          throw new Error("このアカウントはパスワードログインに対応していません");
         }
 
         // Verify password using bcrypt
@@ -93,6 +85,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
           employeeId: user.employeeId,
+          managerId: user.employee?.managerId ?? null,
         };
       },
     }),
@@ -106,22 +99,14 @@ export const authOptions: NextAuthOptions = {
      * Add custom fields to the token here.
      */
     async jwt({ token, user, trigger, session }) {
-      // Initial sign in
+      // Initial sign in - receive user data from authorize()
       if (user) {
         token.id = user.id;
         token.email = user.email;
         token.name = user.name;
         token.role = user.role;
         token.employeeId = user.employeeId;
-
-        // Fetch employee data for managerId
-        if (user.employeeId) {
-          const employee = await prisma.employee.findUnique({
-            where: { id: user.employeeId },
-            select: { managerId: true },
-          });
-          token.managerId = employee?.managerId ?? null;
-        }
+        token.managerId = user.managerId ?? null;
       }
 
       // Handle session updates (when session is updated on client)
