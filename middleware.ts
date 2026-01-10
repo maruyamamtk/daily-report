@@ -11,6 +11,7 @@
 
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
+import { isAdmin } from "@/types/roles";
 
 /**
  * Middleware configuration using NextAuth's withAuth wrapper
@@ -53,9 +54,7 @@ export default withAuth(
      * Only administrators (管理者) can access employee management pages
      */
     if (pathname.startsWith("/employees")) {
-      const userRole = token?.role as string | undefined;
-
-      if (userRole !== "管理者") {
+      if (!isAdmin(token?.role)) {
         return NextResponse.redirect(new URL("/dashboard", req.url));
       }
     }
