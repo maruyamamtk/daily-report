@@ -19,6 +19,7 @@ import { NextResponse } from "next/server";
  * 1. Protects specified routes from unauthenticated access
  * 2. Redirects unauthenticated users to /login
  * 3. Redirects authenticated users from /login to /dashboard
+ * 4. Enforces role-based access control (RBAC) for /employees routes (administrators only)
  */
 export default withAuth(
   function middleware(req) {
@@ -31,6 +32,18 @@ export default withAuth(
      */
     if (token && pathname === "/login") {
       return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+
+    /**
+     * Role-based access control for /employees routes
+     * Only administrators (管理者) can access employee management pages
+     */
+    if (pathname.startsWith("/employees")) {
+      const userRole = token?.role as string | undefined;
+
+      if (userRole !== "管理者") {
+        return NextResponse.redirect(new URL("/dashboard", req.url));
+      }
     }
 
     /**
