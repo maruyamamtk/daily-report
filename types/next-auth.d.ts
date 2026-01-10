@@ -9,6 +9,7 @@
 
 import { DefaultSession, DefaultUser } from "next-auth";
 import { DefaultJWT } from "next-auth/jwt";
+import { UserRoleType } from "./roles";
 
 /**
  * Extend the built-in session types
@@ -21,7 +22,7 @@ declare module "next-auth" {
     id: string;
     email: string;
     name: string | null;
-    role: string; // 営業, 上長, 管理者
+    role: UserRoleType; // 営業, 上長, 管理者
     employeeId: number | null;
     managerId?: number | null;
   }
@@ -34,7 +35,7 @@ declare module "next-auth" {
       id: string;
       email: string;
       name: string | null;
-      role: string; // 営業, 上長, 管理者
+      role: UserRoleType; // 営業, 上長, 管理者
       employeeId: number | null;
       managerId: number | null;
     } & DefaultSession["user"];
@@ -52,7 +53,7 @@ declare module "next-auth/jwt" {
     id: string;
     email: string;
     name: string | null;
-    role: string; // 営業, 上長, 管理者
+    role: UserRoleType; // 営業, 上長, 管理者
     employeeId: number | null;
     managerId: number | null;
   }
