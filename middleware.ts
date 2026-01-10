@@ -16,15 +16,29 @@ import { NextResponse } from "next/server";
  * Middleware configuration using NextAuth's withAuth wrapper
  *
  * This middleware:
- * 1. Protects specified routes from unauthenticated access
- * 2. Redirects unauthenticated users to /login
- * 3. Redirects authenticated users from /login to /dashboard
- * 4. Enforces role-based access control (RBAC) for /employees routes (administrators only)
+ * 1. Handles root path (/) redirects based on authentication status
+ * 2. Protects specified routes from unauthenticated access
+ * 3. Redirects unauthenticated users to /login
+ * 4. Redirects authenticated users from /login to /dashboard
+ * 5. Enforces role-based access control (RBAC) for /employees routes (administrators only)
  */
 export default withAuth(
   function middleware(req) {
     const { pathname } = req.nextUrl;
     const token = req.nextauth.token;
+
+    /**
+     * Root path (/) handling
+     * - Authenticated users: redirect to /dashboard
+     * - Unauthenticated users: redirect to /login
+     */
+    if (pathname === "/") {
+      if (token) {
+        return NextResponse.redirect(new URL("/dashboard", req.url));
+      } else {
+        return NextResponse.redirect(new URL("/login", req.url));
+      }
+    }
 
     /**
      * If user is authenticated and trying to access login page,
