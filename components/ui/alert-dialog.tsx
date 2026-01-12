@@ -58,8 +58,14 @@ export function AlertDialog({
   loading = false,
 }: AlertDialogProps) {
   const handleConfirm = async () => {
-    await onConfirm();
-    onOpenChange(false);
+    try {
+      await onConfirm();
+      onOpenChange(false); // 成功時のみダイアログを閉じる
+    } catch (error) {
+      // エラーは親コンポーネントで処理される（トースト通知など）
+      // ダイアログは開いたまま、ユーザーは再試行またはキャンセル可能
+      console.error("AlertDialog: onConfirm failed", error);
+    }
   };
 
   return (
