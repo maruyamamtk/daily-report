@@ -21,6 +21,16 @@ export interface ColumnDef<T> {
   header: string;
   accessor: keyof T | ((row: T) => React.ReactNode);
   sortable?: boolean;
+  /**
+   * ソート時に使用する値を取得する関数。
+   * accessorが関数でReactNodeを返す場合、ソートには元の値を使用する必要があります。
+   */
+  sortValue?: (row: T) => string | number | Date;
+  /**
+   * 検索時に使用する値を取得する関数。
+   * accessorが関数でReactNodeを返す場合、検索には元の値を使用する必要があります。
+   */
+  searchValue?: (row: T) => string;
   className?: string;
   headerClassName?: string;
 }
@@ -41,7 +51,7 @@ export interface PaginationState {
   pageSize: number;
 }
 
-export function DataTable<T extends Record<string, any>>({
+export function DataTable<T extends Record<string, unknown>>({
   columns,
   data,
   searchable = false,
@@ -65,10 +75,16 @@ export function DataTable<T extends Record<string, any>>({
 
     return data.filter((row) => {
       return columns.some((column) => {
-        const value =
-          typeof column.accessor === "function"
-            ? column.accessor(row)
-            : row[column.accessor];
+        // searchValueが定義されている場合はそれを使用
+        let value: unknown;
+        if (column.searchValue) {
+          value = column.searchValue(row);
+        } else if (typeof column.accessor === "function") {
+          // 関数型accessorの場合はReactNodeが返される可能性があるため、検索対象外
+          return false;
+        } else {
+          value = row[column.accessor];
+        }
 
         if (value === null || value === undefined) return false;
 
@@ -87,16 +103,27 @@ export function DataTable<T extends Record<string, any>>({
     if (!column) return filteredData;
 
     return [...filteredData].sort((a, b) => {
-      const aValue =
-        typeof column.accessor === "function"
-          ? column.accessor(a)
-          : a[column.accessor];
-      const bValue =
-        typeof column.accessor === "function"
-          ? column.accessor(b)
-          : b[column.accessor];
+      // sortValueが定義されている場合はそれを使用
+      let aValue: unknown;
+      let bValue: unknown;
+
+      if (column.sortValue) {
+        aValue = column.sortValue(a);
+        bValue = column.sortValue(b);
+      } else if (typeof column.accessor === "function") {
+        // 関数型accessorでsortValueが未定義の場合はソート不可
+        // この場合、元の順序を維持
+        return 0;
+      } else {
+        aValue = a[column.accessor];
+        bValue = b[column.accessor];
+      }
 
       if (aValue === bValue) return 0;
+
+      // null/undefinedは最後に配置
+      if (aValue === null || aValue === undefined) return 1;
+      if (bValue === null || bValue === undefined) return -1;
 
       const comparison = aValue < bValue ? -1 : 1;
       return sortDirection === "asc" ? comparison : -comparison;
@@ -117,6 +144,14 @@ export function DataTable<T extends Record<string, any>>({
     const column = columns.find((col) => col.id === columnId);
     if (!column?.sortable) return;
 
+    // 関数型accessorでsortValueが未定義の場合はソート不可
+    if (typeof column.accessor === "function" && !column.sortValue) {
+      console.warn(
+        `Column "${columnId}" uses a function accessor but has no sortValue. Sorting is disabled.`
+      );
+      return;
+    }
+
     if (sortColumn === columnId) {
       if (sortDirection === "asc") {
         setSortDirection("desc");
@@ -128,6 +163,9 @@ export function DataTable<T extends Record<string, any>>({
       setSortColumn(columnId);
       setSortDirection("asc");
     }
+
+    // ソート変更時は最初のページに戻る
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
   };
 
   // ソートアイコン取得

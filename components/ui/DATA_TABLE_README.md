@@ -164,6 +164,8 @@ const columns: ColumnDef<DailyReport>[] = [
 | `header` | `string` | ○ | - | ヘッダーに表示するテキスト |
 | `accessor` | `keyof T \| ((row: T) => React.ReactNode)` | ○ | - | データのアクセサーまたはレンダー関数 |
 | `sortable` | `boolean` | - | `false` | ソート可能にするか |
+| `sortValue` | `(row: T) => string \| number \| Date` | - | - | ソート時に使用する値を取得する関数。accessorが関数でReactNodeを返す場合に必須 |
+| `searchValue` | `(row: T) => string` | - | - | 検索時に使用する値を取得する関数。accessorが関数でReactNodeを返す場合に推奨 |
 | `className` | `string` | - | - | セルのクラス名 |
 | `headerClassName` | `string` | - | - | ヘッダーセルのクラス名 |
 
@@ -247,11 +249,53 @@ const columns: ColumnDef<DailyReport>[] = [
 2. **重要なカラムのみ表示**（`hidden md:table-cell` などのクラスを使用）
 3. **折りたたみ可能な詳細行**（必要に応じて実装）
 
-## 注意事項
+## 注意事項とベストプラクティス
 
-- `accessor`に関数を使用する場合、ソート時の比較はReactNodeではなく元の値を返す必要があります
+### 関数型accessorを使用する場合
+
+`accessor`に関数を使用してReactNodeを返す場合、ソートと検索には以下の対応が必要です：
+
+#### ソートを有効にする場合
+
+`sortValue`関数を必ず定義してください。定義しない場合、ソートが無効化され、警告が表示されます。
+
+```typescript
+{
+  id: "status",
+  header: "ステータス",
+  accessor: (row) => (
+    <Badge variant={row.status === "active" ? "default" : "secondary"}>
+      {row.status === "active" ? "有効" : "無効"}
+    </Badge>
+  ),
+  sortable: true,
+  sortValue: (row) => row.status, // ソート用の値を返す
+}
+```
+
+#### 検索を有効にする場合
+
+`searchValue`関数を定義してください。定義しない場合、そのカラムは検索対象外になります。
+
+```typescript
+{
+  id: "commentCount",
+  header: "コメント数",
+  accessor: (row) => (
+    <div className="flex items-center gap-2">
+      <span>{row.commentCount}</span>
+      {row.hasUnread && <Badge variant="destructive">未読</Badge>}
+    </div>
+  ),
+  searchValue: (row) => String(row.commentCount), // 検索用の値を返す
+}
+```
+
+### その他の注意事項
+
 - アクションボタン内のクリックイベントでは `e.stopPropagation()` を呼び出して行クリックを防ぐ必要があります
-- 大量データの場合はサーバーサイドページネーションの実装を推奨します
+- ソート変更時は自動的に最初のページに戻ります
+- 大量データ（1000件以上）の場合はサーバーサイドページネーションの実装を推奨します
 
 ## 今後の拡張案
 
