@@ -20,6 +20,8 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { MessageSquare, Send } from "lucide-react";
 
+const COMMENT_MAX_LENGTH = 500;
+
 interface Comment {
   id: number;
   commenterId: number;
@@ -61,10 +63,10 @@ export function CommentSection({
       return;
     }
 
-    if (commentContent.length > 500) {
+    if (commentContent.length > COMMENT_MAX_LENGTH) {
       toast({
         title: "入力エラー",
-        description: "コメントは500文字以内で入力してください",
+        description: `コメントは${COMMENT_MAX_LENGTH}文字以内で入力してください`,
         variant: "destructive",
       });
       return;
@@ -84,6 +86,16 @@ export function CommentSection({
 
       if (!response.ok) {
         const errorData = await response.json();
+
+        // Handle specific error status codes
+        if (response.status === 401) {
+          throw new Error("認証が必要です。再度ログインしてください。");
+        } else if (response.status === 403) {
+          throw new Error("コメントを投稿する権限がありません。");
+        } else if (response.status === 404) {
+          throw new Error("日報が見つかりません。");
+        }
+
         throw new Error(errorData.error?.message || "コメントの投稿に失敗しました");
       }
 
@@ -166,15 +178,16 @@ export function CommentSection({
               <Label htmlFor="comment">コメントを投稿</Label>
               <Textarea
                 id="comment"
-                placeholder="コメント内容を入力してください（500文字以内）"
+                placeholder={`コメント内容を入力してください（${COMMENT_MAX_LENGTH}文字以内）`}
                 value={commentContent}
                 onChange={(e) => setCommentContent(e.target.value)}
                 disabled={isSubmitting}
                 rows={4}
                 className="mt-2"
+                aria-describedby="comment-char-count"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                {commentContent.length} / 500文字
+              <p id="comment-char-count" className="text-xs text-muted-foreground mt-1">
+                {commentContent.length} / {COMMENT_MAX_LENGTH}文字
               </p>
             </div>
             <Button type="submit" disabled={isSubmitting || !commentContent.trim()}>

@@ -16,10 +16,12 @@ import { Trash2 } from "lucide-react";
 
 interface DailyReportDetailActionsProps {
   reportId: number;
+  reportDate: string;
 }
 
 export function DailyReportDetailActions({
   reportId,
+  reportDate,
 }: DailyReportDetailActionsProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -65,6 +67,7 @@ export function DailyReportDetailActions({
         variant="destructive"
         onClick={() => setShowDeleteDialog(true)}
         disabled={isDeleting}
+        aria-label="日報を削除"
       >
         <Trash2 className="h-4 w-4 mr-2" />
         削除
@@ -74,7 +77,7 @@ export function DailyReportDetailActions({
         open={showDeleteDialog}
         onOpenChange={setShowDeleteDialog}
         title="日報を削除"
-        description="この日報を削除してもよろしいですか？この操作は取り消せません。"
+        description={`${reportDate}の日報を削除してもよろしいですか？この操作は取り消せません。`}
         confirmText="削除"
         cancelText="キャンセル"
         variant="destructive"

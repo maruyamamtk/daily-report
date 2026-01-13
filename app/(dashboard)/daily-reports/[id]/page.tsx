@@ -34,7 +34,6 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import { DailyReportDetailActions } from "@/components/features/daily-report/daily-report-detail-actions";
 import { CommentSection } from "@/components/features/daily-report/comment-section";
 import { ArrowLeft, Calendar, User, Clock, Edit, Trash2 } from "lucide-react";
@@ -169,12 +168,12 @@ export default async function DailyReportDetailPage({
         {canEdit && (
           <div className="flex gap-2">
             <Link href={`/daily-reports/${report.id}/edit`}>
-              <Button variant="outline">
+              <Button variant="outline" aria-label="日報を編集">
                 <Edit className="h-4 w-4 mr-2" />
                 編集
               </Button>
             </Link>
-            <DailyReportDetailActions reportId={report.id} />
+            <DailyReportDetailActions reportId={report.id} reportDate={reportDate} />
           </div>
         )}
       </div>

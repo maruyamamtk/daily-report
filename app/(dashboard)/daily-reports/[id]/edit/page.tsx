@@ -68,15 +68,13 @@ export default async function EditDailyReportPage({
 
   // Format report data for the form
   const formData = {
-    report_id: report.id,
     report_date: report.reportDate.toISOString().split("T")[0],
     problem: report.problem || "",
     plan: report.plan || "",
     visits: report.visitRecords.map((visit) => ({
       visit_id: visit.id,
       customer_id: visit.customerId,
-      customer_name: visit.customer.customerName,
-      visit_time: new Date(visit.visitTime).toLocaleTimeString("en-GB", {
+      visit_time: new Date(visit.visitTime).toLocaleTimeString("ja-JP", {
         hour: "2-digit",
         minute: "2-digit",
       }),
@@ -91,7 +89,7 @@ export default async function EditDailyReportPage({
         <p className="text-muted-foreground">日報の内容を編集します</p>
       </div>
 
-      <DailyReportForm mode="edit" initialData={formData} />
+      <DailyReportForm mode="edit" reportId={report.id} initialData={formData} />
     </div>
   );
 }
