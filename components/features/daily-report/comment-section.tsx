@@ -124,6 +124,12 @@ export function CommentSection({
 
   const formatDate = (date: Date | string) => {
     const d = typeof date === "string" ? new Date(date) : date;
+
+    // Check if the date is invalid
+    if (isNaN(d.getTime())) {
+      return "日時不明";
+    }
+
     return d.toLocaleString("ja-JP", {
       year: "numeric",
       month: "2-digit",

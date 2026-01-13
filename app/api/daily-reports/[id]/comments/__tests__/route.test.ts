@@ -133,6 +133,34 @@ describe("Comments API - POST /api/daily-reports/:id/comments", () => {
       expect(response.status).toBe(201);
     });
 
+    it("should return 403 when MANAGER tries to comment on report they don't manage", async () => {
+      const managerSession = createMockSession(UserRole.MANAGER, 2);
+      mockRequireApiAuth.mockResolvedValueOnce({
+        user: managerSession.user,
+      });
+
+      // Report's employee has a different manager (managerId: 3, not 2)
+      mockPrismaDailyReport.findUnique.mockResolvedValueOnce({
+        id: 1,
+        employeeId: 1,
+        employee: {
+          managerId: 3, // Different manager
+        },
+      });
+
+      const request = createMockRequest({ comment_content: "テストコメント" });
+      const response = await POST(request, { params: { id: "1" } });
+
+      expect(response.status).toBe(403);
+      const body = await response.json();
+      expect(body).toEqual({
+        error: {
+          code: "FORBIDDEN",
+          message: "この日報にコメントする権限がありません",
+        },
+      });
+    });
+
     it("should allow ADMIN to post comment", async () => {
       const adminSession = createMockSession(UserRole.ADMIN, 3);
       mockRequireApiAuth.mockResolvedValueOnce({

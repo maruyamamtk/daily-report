@@ -85,6 +85,21 @@ export async function POST(
       );
     }
 
+    // For managers, check if they are the manager of the report's author
+    if (user.role === UserRole.MANAGER) {
+      if (report.employee.managerId !== user.employeeId) {
+        return NextResponse.json(
+          {
+            error: {
+              code: "FORBIDDEN",
+              message: "この日報にコメントする権限がありません",
+            },
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     // Parse and validate request body
     const body = await request.json();
     const validation = commentSchema.safeParse(body);

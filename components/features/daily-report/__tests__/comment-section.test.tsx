@@ -586,5 +586,28 @@ describe("CommentSection Component", () => {
 
       expect(screen.getByText("良い内容ですね！")).toBeInTheDocument();
     });
+
+    it("should handle invalid dates gracefully", () => {
+      const commentsWithInvalidDate = [
+        {
+          ...mockComments[0],
+          createdAt: "invalid-date-string",
+        },
+      ];
+
+      render(
+        <CommentSection
+          reportId={1}
+          comments={commentsWithInvalidDate}
+          canComment={false}
+          currentUserId={1}
+        />
+      );
+
+      // Should show "日時不明" for invalid dates
+      expect(screen.getByText("日時不明")).toBeInTheDocument();
+      // Comment content should still be displayed
+      expect(screen.getByText("良い内容ですね！")).toBeInTheDocument();
+    });
   });
 });

@@ -57,7 +57,7 @@ export function DailyReportDetailActions({
         variant: "destructive",
       });
       setIsDeleting(false);
-      setShowDeleteDialog(false);
+      // AlertDialog handles closing automatically, no need to manually close
     }
   };
 
