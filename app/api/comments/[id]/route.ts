@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireApiAuth } from "@/lib/api-auth";
+import { requireApiAuthWithEmployeeId } from "@/lib/api-auth";
 
 /**
  * DELETE /api/comments/:id
@@ -33,24 +33,11 @@ export async function DELETE(
       );
     }
 
-    // Check authentication
-    const authResult = await requireApiAuth();
+    // Check authentication and validate employeeId
+    const authResult = await requireApiAuthWithEmployeeId();
     if (authResult.error) return authResult.error;
 
     const { user } = authResult;
-
-    // Check if user has a valid employeeId
-    if (!user.employeeId) {
-      return NextResponse.json(
-        {
-          error: {
-            code: "INVALID_USER",
-            message: "ユーザー情報が不正です",
-          },
-        },
-        { status: 400 }
-      );
-    }
 
     // Fetch existing comment
     const existingComment = await prisma.comment.findUnique({
