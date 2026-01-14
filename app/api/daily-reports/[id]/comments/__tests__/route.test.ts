@@ -101,6 +101,44 @@ describe("Comments API - POST /api/daily-reports/:id/comments", () => {
       });
     });
 
+    it("should return 400 when user has null employeeId", async () => {
+      const sessionWithNullEmployeeId = {
+        user: {
+          id: "test-user-id",
+          email: "manager@example.com",
+          name: "Manager User",
+          role: UserRole.MANAGER,
+          employeeId: null,
+          managerId: null,
+        },
+        expires: new Date(Date.now() + 86400000).toISOString(),
+      };
+
+      mockRequireApiAuth.mockResolvedValueOnce({
+        user: sessionWithNullEmployeeId.user,
+      });
+
+      mockPrismaDailyReport.findUnique.mockResolvedValueOnce({
+        id: 1,
+        employeeId: 1,
+        employee: {
+          managerId: 2,
+        },
+      });
+
+      const request = createMockRequest({ comment_content: "テストコメント" });
+      const response = await POST(request, { params: { id: "1" } });
+
+      expect(response.status).toBe(400);
+      const body = await response.json();
+      expect(body).toEqual({
+        error: {
+          code: "INVALID_USER",
+          message: "ユーザー情報が不正です",
+        },
+      });
+    });
+
     it("should allow MANAGER to post comment", async () => {
       const managerSession = createMockSession(UserRole.MANAGER, 2);
       mockRequireApiAuth.mockResolvedValueOnce({

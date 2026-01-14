@@ -74,9 +74,10 @@ export default async function EditDailyReportPage({
     visits: report.visitRecords.map((visit) => ({
       visit_id: visit.id,
       customer_id: visit.customerId,
-      visit_time: new Date(visit.visitTime).toLocaleTimeString("ja-JP", {
+      visit_time: visit.visitTime.toLocaleTimeString("ja-JP", {
         hour: "2-digit",
         minute: "2-digit",
+        hour12: false,
       }),
       visit_content: visit.visitContent,
     })),

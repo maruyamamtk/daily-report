@@ -124,11 +124,24 @@ export async function POST(
 
     const { comment_content } = validation.data;
 
+    // Check if user has a valid employeeId
+    if (!user.employeeId) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "INVALID_USER",
+            message: "ユーザー情報が不正です",
+          },
+        },
+        { status: 400 }
+      );
+    }
+
     // Create comment
     const comment = await prisma.comment.create({
       data: {
         reportId: reportId,
-        commenterId: user.employeeId!,
+        commenterId: user.employeeId,
         commentContent: comment_content,
       },
       include: {
