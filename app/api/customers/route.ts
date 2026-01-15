@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
 import { createCustomerSchema } from "@/lib/validators";
@@ -38,8 +39,21 @@ export async function GET(request: NextRequest) {
     const customerName = searchParams.get("customer_name");
     const employeeId = searchParams.get("employee_id");
 
-    // Build where clause
-    const where: any = {};
+    // Validate search parameters
+    if (customerName && customerName.length > 100) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "検索文字列が長すぎます（最大100文字）",
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    // Build where clause with proper typing
+    const where: Prisma.CustomerWhereInput = {};
     if (customerName) {
       where.customerName = {
         contains: customerName,
@@ -47,7 +61,19 @@ export async function GET(request: NextRequest) {
       };
     }
     if (employeeId) {
-      where.assignedEmployeeId = parseInt(employeeId);
+      const parsedEmployeeId = parseInt(employeeId, 10);
+      if (isNaN(parsedEmployeeId)) {
+        return NextResponse.json(
+          {
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "担当営業IDが不正です",
+            },
+          },
+          { status: 400 }
+        );
+      }
+      where.assignedEmployeeId = parsedEmployeeId;
     }
 
     // Get total count with filters
