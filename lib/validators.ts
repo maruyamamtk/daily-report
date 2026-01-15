@@ -84,3 +84,65 @@ export const updateDailyReportSchema = z.object({
 export type VisitRecordInput = z.infer<typeof visitRecordSchema>;
 export type CreateDailyReportInput = z.infer<typeof createDailyReportSchema>;
 export type UpdateDailyReportInput = z.infer<typeof updateDailyReportSchema>;
+
+/**
+ * Customer creation validation schema
+ */
+export const createCustomerSchema = z.object({
+  customer_name: z
+    .string()
+    .min(1, "顧客名を入力してください")
+    .max(100, "顧客名は100文字以内で入力してください"),
+  address: z
+    .string()
+    .max(255, "住所は255文字以内で入力してください")
+    .optional(),
+  phone: z
+    .string()
+    .max(20, "電話番号は20文字以内で入力してください")
+    .regex(/^[0-9\-]*$/, "電話番号は数字とハイフンのみで入力してください")
+    .optional(),
+  email: z
+    .string()
+    .email("正しいメールアドレス形式で入力してください")
+    .max(255, "メールアドレスは255文字以内で入力してください")
+    .optional(),
+  assigned_employee_id: z
+    .number()
+    .int()
+    .positive("担当営業IDは必須です"),
+});
+
+/**
+ * Customer update validation schema
+ */
+export const updateCustomerSchema = z.object({
+  customer_name: z
+    .string()
+    .min(1, "顧客名を入力してください")
+    .max(100, "顧客名は100文字以内で入力してください"),
+  address: z
+    .string()
+    .max(255, "住所は255文字以内で入力してください")
+    .optional(),
+  phone: z
+    .string()
+    .max(20, "電話番号は20文字以内で入力してください")
+    .regex(/^[0-9\-]*$/, "電話番号は数字とハイフンのみで入力してください")
+    .optional(),
+  email: z
+    .string()
+    .email("正しいメールアドレス形式で入力してください")
+    .max(255, "メールアドレスは255文字以内で入力してください")
+    .optional(),
+  assigned_employee_id: z
+    .number()
+    .int()
+    .positive("担当営業IDは必須です"),
+});
+
+/**
+ * Type inference from customer schemas
+ */
+export type CreateCustomerInput = z.infer<typeof createCustomerSchema>;
+export type UpdateCustomerInput = z.infer<typeof updateCustomerSchema>;
