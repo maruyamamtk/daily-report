@@ -19,6 +19,8 @@ import { createCustomerSchema } from "@/lib/validators";
  * Query parameters:
  * - page: Page number (default: 1)
  * - limit: Items per page (default: 100, max: 500)
+ * - customer_name: Filter by customer name (partial match)
+ * - employee_id: Filter by assigned employee ID
  *
  * Permissions:
  * - All authenticated users can view customers
@@ -33,9 +35,23 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get("page") || "1");
     const limit = Math.min(parseInt(searchParams.get("limit") || "100"), 500);
+    const customerName = searchParams.get("customer_name");
+    const employeeId = searchParams.get("employee_id");
 
-    // Get total count
-    const totalCount = await prisma.customer.count();
+    // Build where clause
+    const where: any = {};
+    if (customerName) {
+      where.customerName = {
+        contains: customerName,
+        mode: "insensitive",
+      };
+    }
+    if (employeeId) {
+      where.assignedEmployeeId = parseInt(employeeId);
+    }
+
+    // Get total count with filters
+    const totalCount = await prisma.customer.count({ where });
 
     // Calculate pagination
     const totalPages = Math.ceil(totalCount / limit);
@@ -43,6 +59,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch customers with assigned employee
     const customers = await prisma.customer.findMany({
+      where,
       include: {
         assignedEmployee: {
           select: {
