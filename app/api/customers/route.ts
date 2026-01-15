@@ -164,9 +164,9 @@ export async function POST(request: NextRequest) {
     const customer = await prisma.customer.create({
       data: {
         customerName: customer_name,
-        address: address || null,
-        phone: phone || null,
-        email: email || null,
+        address: address ?? null,
+        phone: phone ?? null,
+        email: email ?? null,
         assignedEmployeeId: assigned_employee_id,
       },
       include: {

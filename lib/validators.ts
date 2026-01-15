@@ -96,16 +96,19 @@ export const createCustomerSchema = z.object({
   address: z
     .string()
     .max(255, "住所は255文字以内で入力してください")
+    .transform(val => val || undefined)
     .optional(),
   phone: z
     .string()
     .max(20, "電話番号は20文字以内で入力してください")
     .regex(/^[0-9\-]*$/, "電話番号は数字とハイフンのみで入力してください")
+    .transform(val => val || undefined)
     .optional(),
   email: z
     .string()
     .email("正しいメールアドレス形式で入力してください")
     .max(255, "メールアドレスは255文字以内で入力してください")
+    .transform(val => val || undefined)
     .optional(),
   assigned_employee_id: z
     .number()
@@ -124,16 +127,19 @@ export const updateCustomerSchema = z.object({
   address: z
     .string()
     .max(255, "住所は255文字以内で入力してください")
+    .transform(val => val || undefined)
     .optional(),
   phone: z
     .string()
     .max(20, "電話番号は20文字以内で入力してください")
     .regex(/^[0-9\-]*$/, "電話番号は数字とハイフンのみで入力してください")
+    .transform(val => val || undefined)
     .optional(),
   email: z
     .string()
     .email("正しいメールアドレス形式で入力してください")
     .max(255, "メールアドレスは255文字以内で入力してください")
+    .transform(val => val || undefined)
     .optional(),
   assigned_employee_id: z
     .number()
