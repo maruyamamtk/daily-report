@@ -610,4 +610,498 @@ describe("CommentSection Component", () => {
       expect(screen.getByText("良い内容ですね！")).toBeInTheDocument();
     });
   });
+
+  describe("コメント削除機能", () => {
+    beforeEach(() => {
+      // Mock window.confirm
+      vi.stubGlobal("confirm", vi.fn());
+    });
+
+    it("should show delete button only for own comments", () => {
+      const commentsWithDifferentUsers = [
+        {
+          id: 1,
+          commenterId: 2, // Current user's comment
+          commentContent: "自分のコメント",
+          createdAt: "2026-01-10T10:00:00Z",
+          commenter: {
+            id: 2,
+            name: "Current User",
+          },
+        },
+        {
+          id: 2,
+          commenterId: 3, // Someone else's comment
+          commentContent: "他人のコメント",
+          createdAt: "2026-01-11T15:30:00Z",
+          commenter: {
+            id: 3,
+            name: "Other User",
+          },
+        },
+      ];
+
+      render(
+        <CommentSection
+          reportId={1}
+          comments={commentsWithDifferentUsers}
+          canComment={false}
+          currentUserId={2} // Current user's employeeId
+        />
+      );
+
+      // Should show delete button for own comment
+      const deleteButtons = screen.getAllByLabelText("コメントを削除");
+      expect(deleteButtons).toHaveLength(1);
+
+      // The button should be associated with the first comment (own comment)
+      const ownCommentContainer = screen.getByText("自分のコメント").closest("div");
+      expect(ownCommentContainer?.querySelector("button")).toBeInTheDocument();
+
+      // The second comment should not have a delete button
+      const otherCommentContainer = screen.getByText("他人のコメント").closest("div");
+      const deleteButtonInOtherComment = otherCommentContainer?.querySelector(
+        'button[aria-label="コメントを削除"]'
+      );
+      expect(deleteButtonInOtherComment).toBeNull();
+    });
+
+    it("should not show delete button when user is not comment owner", () => {
+      const comments = [
+        {
+          id: 1,
+          commenterId: 3, // Someone else's comment
+          commentContent: "他人のコメント",
+          createdAt: "2026-01-10T10:00:00Z",
+          commenter: {
+            id: 3,
+            name: "Other User",
+          },
+        },
+      ];
+
+      render(
+        <CommentSection
+          reportId={1}
+          comments={comments}
+          canComment={false}
+          currentUserId={2} // Current user's employeeId (different from commenter)
+        />
+      );
+
+      const deleteButtons = screen.queryAllByLabelText("コメントを削除");
+      expect(deleteButtons).toHaveLength(0);
+    });
+
+    it("should show confirmation dialog before deletion", async () => {
+      const user = userEvent.setup();
+      const confirmMock = vi.mocked(window.confirm);
+      confirmMock.mockReturnValue(false); // User cancels deletion
+
+      const comments = [
+        {
+          id: 1,
+          commenterId: 2,
+          commentContent: "削除予定のコメント",
+          createdAt: "2026-01-10T10:00:00Z",
+          commenter: {
+            id: 2,
+            name: "Current User",
+          },
+        },
+      ];
+
+      render(
+        <CommentSection
+          reportId={1}
+          comments={comments}
+          canComment={false}
+          currentUserId={2}
+        />
+      );
+
+      const deleteButton = screen.getByLabelText("コメントを削除");
+      await user.click(deleteButton);
+
+      // Confirm dialog should be shown
+      expect(confirmMock).toHaveBeenCalledWith(
+        "このコメントを削除してもよろしいですか?"
+      );
+
+      // Fetch should not be called if user cancels
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it("should successfully delete a comment", async () => {
+      const user = userEvent.setup();
+      const confirmMock = vi.mocked(window.confirm);
+      confirmMock.mockReturnValue(true); // User confirms deletion
+
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+      });
+
+      const comments = [
+        {
+          id: 1,
+          commenterId: 2,
+          commentContent: "削除するコメント",
+          createdAt: "2026-01-10T10:00:00Z",
+          commenter: {
+            id: 2,
+            name: "Current User",
+          },
+        },
+      ];
+
+      render(
+        <CommentSection
+          reportId={1}
+          comments={comments}
+          canComment={false}
+          currentUserId={2}
+        />
+      );
+
+      const deleteButton = screen.getByLabelText("コメントを削除");
+      await user.click(deleteButton);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith("/api/comments/1", {
+          method: "DELETE",
+        });
+      });
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith({
+          title: "削除完了",
+          description: "コメントを削除しました",
+        });
+        expect(mockRefresh).toHaveBeenCalled();
+      });
+    });
+
+    it("should handle 401 error when deleting comment", async () => {
+      const user = userEvent.setup();
+      const confirmMock = vi.mocked(window.confirm);
+      confirmMock.mockReturnValue(true);
+
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({
+          error: { message: "Unauthorized" },
+        }),
+      });
+
+      const comments = [
+        {
+          id: 1,
+          commenterId: 2,
+          commentContent: "削除するコメント",
+          createdAt: "2026-01-10T10:00:00Z",
+          commenter: {
+            id: 2,
+            name: "Current User",
+          },
+        },
+      ];
+
+      render(
+        <CommentSection
+          reportId={1}
+          comments={comments}
+          canComment={false}
+          currentUserId={2}
+        />
+      );
+
+      const deleteButton = screen.getByLabelText("コメントを削除");
+      await user.click(deleteButton);
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith({
+          title: "削除失敗",
+          description: "認証が必要です。再度ログインしてください。",
+          variant: "destructive",
+        });
+      });
+    });
+
+    it("should handle 403 error when deleting others' comment", async () => {
+      const user = userEvent.setup();
+      const confirmMock = vi.mocked(window.confirm);
+      confirmMock.mockReturnValue(true);
+
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({
+          error: { message: "Forbidden" },
+        }),
+      });
+
+      const comments = [
+        {
+          id: 1,
+          commenterId: 2,
+          commentContent: "削除するコメント",
+          createdAt: "2026-01-10T10:00:00Z",
+          commenter: {
+            id: 2,
+            name: "Current User",
+          },
+        },
+      ];
+
+      render(
+        <CommentSection
+          reportId={1}
+          comments={comments}
+          canComment={false}
+          currentUserId={2}
+        />
+      );
+
+      const deleteButton = screen.getByLabelText("コメントを削除");
+      await user.click(deleteButton);
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith({
+          title: "削除失敗",
+          description: "このコメントを削除する権限がありません。",
+          variant: "destructive",
+        });
+      });
+    });
+
+    it("should handle 404 error when comment not found", async () => {
+      const user = userEvent.setup();
+      const confirmMock = vi.mocked(window.confirm);
+      confirmMock.mockReturnValue(true);
+
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({
+          error: { message: "Not Found" },
+        }),
+      });
+
+      const comments = [
+        {
+          id: 1,
+          commenterId: 2,
+          commentContent: "削除するコメント",
+          createdAt: "2026-01-10T10:00:00Z",
+          commenter: {
+            id: 2,
+            name: "Current User",
+          },
+        },
+      ];
+
+      render(
+        <CommentSection
+          reportId={1}
+          comments={comments}
+          canComment={false}
+          currentUserId={2}
+        />
+      );
+
+      const deleteButton = screen.getByLabelText("コメントを削除");
+      await user.click(deleteButton);
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith({
+          title: "削除失敗",
+          description: "コメントが見つかりません。",
+          variant: "destructive",
+        });
+      });
+    });
+
+    it("should handle generic error during deletion", async () => {
+      const user = userEvent.setup();
+      const confirmMock = vi.mocked(window.confirm);
+      confirmMock.mockReturnValue(true);
+
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({
+          error: { message: "Internal Server Error" },
+        }),
+      });
+
+      const comments = [
+        {
+          id: 1,
+          commenterId: 2,
+          commentContent: "削除するコメント",
+          createdAt: "2026-01-10T10:00:00Z",
+          commenter: {
+            id: 2,
+            name: "Current User",
+          },
+        },
+      ];
+
+      render(
+        <CommentSection
+          reportId={1}
+          comments={comments}
+          canComment={false}
+          currentUserId={2}
+        />
+      );
+
+      const deleteButton = screen.getByLabelText("コメントを削除");
+      await user.click(deleteButton);
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith({
+          title: "削除失敗",
+          description: "Internal Server Error",
+          variant: "destructive",
+        });
+      });
+    });
+
+    it("should handle network error during deletion", async () => {
+      const user = userEvent.setup();
+      const confirmMock = vi.mocked(window.confirm);
+      confirmMock.mockReturnValue(true);
+
+      (global.fetch as any).mockRejectedValueOnce(new Error("Network error"));
+
+      const comments = [
+        {
+          id: 1,
+          commenterId: 2,
+          commentContent: "削除するコメント",
+          createdAt: "2026-01-10T10:00:00Z",
+          commenter: {
+            id: 2,
+            name: "Current User",
+          },
+        },
+      ];
+
+      render(
+        <CommentSection
+          reportId={1}
+          comments={comments}
+          canComment={false}
+          currentUserId={2}
+        />
+      );
+
+      const deleteButton = screen.getByLabelText("コメントを削除");
+      await user.click(deleteButton);
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith({
+          title: "削除失敗",
+          description: "Network error",
+          variant: "destructive",
+        });
+      });
+    });
+
+    it("should disable delete button during deletion", async () => {
+      const user = userEvent.setup();
+      const confirmMock = vi.mocked(window.confirm);
+      confirmMock.mockReturnValue(true);
+
+      (global.fetch as any).mockImplementationOnce(
+        () => new Promise((resolve) => setTimeout(() => resolve({ ok: true, status: 204 }), 100))
+      );
+
+      const comments = [
+        {
+          id: 1,
+          commenterId: 2,
+          commentContent: "削除するコメント",
+          createdAt: "2026-01-10T10:00:00Z",
+          commenter: {
+            id: 2,
+            name: "Current User",
+          },
+        },
+      ];
+
+      render(
+        <CommentSection
+          reportId={1}
+          comments={comments}
+          canComment={false}
+          currentUserId={2}
+        />
+      );
+
+      const deleteButton = screen.getByLabelText("コメントを削除");
+      await user.click(deleteButton);
+
+      // Button should be disabled during deletion
+      expect(deleteButton).toBeDisabled();
+    });
+
+    it("should handle deletion of multiple comments independently", async () => {
+      const user = userEvent.setup();
+      const confirmMock = vi.mocked(window.confirm);
+      confirmMock.mockReturnValue(true);
+
+      (global.fetch as any).mockResolvedValue({
+        ok: true,
+        status: 204,
+      });
+
+      const comments = [
+        {
+          id: 1,
+          commenterId: 2,
+          commentContent: "コメント1",
+          createdAt: "2026-01-10T10:00:00Z",
+          commenter: {
+            id: 2,
+            name: "Current User",
+          },
+        },
+        {
+          id: 2,
+          commenterId: 2,
+          commentContent: "コメント2",
+          createdAt: "2026-01-11T10:00:00Z",
+          commenter: {
+            id: 2,
+            name: "Current User",
+          },
+        },
+      ];
+
+      render(
+        <CommentSection
+          reportId={1}
+          comments={comments}
+          canComment={false}
+          currentUserId={2}
+        />
+      );
+
+      const deleteButtons = screen.getAllByLabelText("コメントを削除");
+      expect(deleteButtons).toHaveLength(2);
+
+      // Click first delete button
+      await user.click(deleteButtons[0]);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith("/api/comments/1", {
+          method: "DELETE",
+        });
+      });
+    });
+  });
 });
