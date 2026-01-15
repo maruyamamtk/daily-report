@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
-import { MessageSquare, Send } from "lucide-react";
+import { MessageSquare, Send, Trash2 } from "lucide-react";
 
 const COMMENT_MAX_LENGTH = 500;
 
@@ -50,6 +50,7 @@ export function CommentSection({
   const { toast } = useToast();
   const [commentContent, setCommentContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState<number | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,6 +123,54 @@ export function CommentSection({
     }
   };
 
+  const handleDelete = async (commentId: number) => {
+    if (!confirm("このコメントを削除してもよろしいですか?")) {
+      return;
+    }
+
+    setDeletingCommentId(commentId);
+    try {
+      const response = await fetch(`/api/comments/${commentId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+
+        // Handle specific error status codes
+        if (response.status === 401) {
+          throw new Error("認証が必要です。再度ログインしてください。");
+        } else if (response.status === 403) {
+          throw new Error("このコメントを削除する権限がありません。");
+        } else if (response.status === 404) {
+          throw new Error("コメントが見つかりません。");
+        }
+
+        throw new Error(errorData.error?.message || "コメントの削除に失敗しました");
+      }
+
+      toast({
+        title: "削除完了",
+        description: "コメントを削除しました",
+      });
+
+      // Refresh data
+      router.refresh();
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      toast({
+        title: "削除失敗",
+        description:
+          error instanceof Error
+            ? error.message
+            : "コメントの削除中にエラーが発生しました",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingCommentId(null);
+    }
+  };
+
   const formatDate = (date: Date | string) => {
     const d = typeof date === "string" ? new Date(date) : date;
 
@@ -153,11 +202,25 @@ export function CommentSection({
                   </div>
                 </div>
                 <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold">{comment.commenter.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(comment.createdAt)}
-                    </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold">{comment.commenter.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(comment.createdAt)}
+                      </p>
+                    </div>
+                    {comment.commenterId === currentUserId && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(comment.id)}
+                        disabled={deletingCommentId === comment.id}
+                        className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        aria-label="コメントを削除"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                   <div className="text-sm whitespace-pre-wrap break-words">
                     {comment.commentContent}
