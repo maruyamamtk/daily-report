@@ -2,9 +2,81 @@
  * Employees List Page (Admin only)
  *
  * Displays list of employees for management.
+ * This page is only accessible to administrators.
+ *
+ * @see screen-specification.md - S-08 営業マスタ一覧画面
  */
 
-export default function EmployeesPage() {
+import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { isAdmin } from "@/types/roles";
+import { EmployeeList } from "@/components/features/employee/employee-list";
+
+export default async function EmployeesPage() {
+  // Check authentication
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  // Check admin role - only administrators can access this page
+  if (!isAdmin(session.user.role)) {
+    redirect("/");
+  }
+
+  // Default limit to match API default
+  const defaultLimit = 20;
+
+  // Fetch employees with default pagination
+  const employees = await prisma.employee.findMany({
+    include: {
+      manager: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: {
+      id: "asc",
+    },
+    take: defaultLimit,
+  });
+
+  // Get unique departments for filter - fetch all for dropdown
+  const allEmployees = await prisma.employee.findMany({
+    select: {
+      department: true,
+    },
+  });
+  const departments = Array.from(
+    new Set(allEmployees.map((emp) => emp.department))
+  ).sort();
+
+  // Format employee data
+  const employeeData = employees.map((employee) => ({
+    employee_id: employee.id,
+    name: employee.name,
+    email: employee.email,
+    department: employee.department,
+    position: employee.position,
+    manager_id: employee.managerId,
+    manager_name: employee.manager?.name ?? null,
+    created_at: employee.createdAt.toISOString(),
+    updated_at: employee.updatedAt.toISOString(),
+  }));
+
+  // Calculate meta information
+  const totalCount = await prisma.employee.count();
+  const meta = {
+    current_page: 1,
+    total_pages: Math.ceil(totalCount / defaultLimit),
+    total_count: totalCount,
+    limit: defaultLimit,
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -14,11 +86,11 @@ export default function EmployeesPage() {
         </p>
       </div>
 
-      <div className="rounded-lg border bg-card p-8 text-center">
-        <p className="text-muted-foreground">
-          営業マスタ機能は実装予定です
-        </p>
-      </div>
+      <EmployeeList
+        initialEmployees={employeeData}
+        initialMeta={meta}
+        departments={departments}
+      />
     </div>
   );
 }
