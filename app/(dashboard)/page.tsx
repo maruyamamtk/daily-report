@@ -17,39 +17,7 @@ import { redirect } from "next/navigation";
 import { SummaryCards } from "@/components/features/dashboard/summary-cards";
 import { QuickActions } from "@/components/features/dashboard/quick-actions";
 import { SubordinatesTable } from "@/components/features/dashboard/subordinates-table";
-
-/**
- * Fetch dashboard statistics from the API
- */
-async function getDashboardStats() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return null;
-  }
-
-  try {
-    // In server components, we need to call our API directly or use Prisma
-    // For simplicity, we'll fetch from our API endpoint using absolute URL
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-    const response = await fetch(`${baseUrl}/api/dashboard/stats`, {
-      headers: {
-        // Pass session token for authentication
-        cookie: `next-auth.session-token=${session.user.id}`,
-      },
-      cache: "no-store", // Disable caching for real-time data
-    });
-
-    if (!response.ok) {
-      console.error("Failed to fetch dashboard stats:", response.statusText);
-      return null;
-    }
-
-    return response.json();
-  } catch (error) {
-    console.error("Error fetching dashboard stats:", error);
-    return null;
-  }
-}
+import { getDashboardStats } from "@/lib/dashboard-stats";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -60,20 +28,27 @@ export default async function DashboardPage() {
   }
 
   const user = session.user;
-  const stats = await getDashboardStats();
 
-  // Default stats if fetch fails
-  const defaultStats = {
-    weeklyReportStatus: {
-      submitted: 0,
-      total: 5,
-      percentage: 0,
-    },
-    unreadCommentsCount: 0,
-    subordinatesReportStatus: [],
-  };
-
-  const dashboardData = stats || defaultStats;
+  // Fetch dashboard stats directly using Prisma (Server Component)
+  let dashboardData;
+  try {
+    if (!user.employeeId) {
+      throw new Error("従業員情報が見つかりません");
+    }
+    dashboardData = await getDashboardStats(user.employeeId, user.role);
+  } catch (error) {
+    console.error("Error fetching dashboard stats:", error);
+    // Default stats if fetch fails
+    dashboardData = {
+      weeklyReportStatus: {
+        submitted: 0,
+        total: 5,
+        percentage: 0,
+      },
+      unreadCommentsCount: 0,
+      subordinatesReportStatus: [],
+    };
+  }
 
   return (
     <div className="space-y-6">
