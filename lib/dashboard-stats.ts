@@ -67,9 +67,9 @@ export async function getDashboardStats(
     },
   });
 
-  // Count unread comments (comments on user's reports)
-  // For simplicity, we're considering all comments as "unread" in this implementation
-  // A proper implementation would require a separate "read status" table
+  // Count comments on user's reports
+  // Note: This counts all comments, not just unread ones.
+  // A proper "unread" implementation would require tracking read status.
   const unreadCommentsCount = await prisma.comment.count({
     where: {
       report: {

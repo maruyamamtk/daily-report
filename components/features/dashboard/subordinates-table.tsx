@@ -15,14 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-interface SubordinateReportStatus {
-  employeeId: number;
-  employeeName: string;
-  submitted: number;
-  total: number;
-  percentage: number;
-}
+import { SubordinateReportStatus } from "@/lib/dashboard-stats";
 
 interface SubordinatesTableProps {
   subordinates: SubordinateReportStatus[];
@@ -84,11 +77,6 @@ export function SubordinatesTable({ subordinates, userRole }: SubordinatesTableP
             </TableBody>
           </Table>
         </div>
-        {subordinates.length === 0 && (
-          <div className="py-8 text-center text-sm text-muted-foreground">
-            {userRole === "管理者" ? "登録されている社員がいません" : "部下が登録されていません"}
-          </div>
-        )}
       </CardContent>
     </Card>
   );

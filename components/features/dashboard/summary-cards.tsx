@@ -8,20 +8,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, MessageSquare, Users } from "lucide-react";
-
-interface WeeklyReportStatus {
-  submitted: number;
-  total: number;
-  percentage: number;
-}
-
-interface SubordinateReportStatus {
-  employeeId: number;
-  employeeName: string;
-  submitted: number;
-  total: number;
-  percentage: number;
-}
+import { WeeklyReportStatus, SubordinateReportStatus } from "@/lib/dashboard-stats";
 
 interface SummaryCardsProps {
   weeklyReportStatus: WeeklyReportStatus;
@@ -64,18 +51,18 @@ export function SummaryCards({
         </CardContent>
       </Card>
 
-      {/* Unread Comments */}
+      {/* Comments Count */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
-            未読コメント件数
+            コメント件数
           </CardTitle>
           <MessageSquare className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{unreadCommentsCount}</div>
           <p className="text-xs text-muted-foreground">
-            {unreadCommentsCount > 0 ? "新しいコメントがあります" : "未読コメントはありません"}
+            {unreadCommentsCount > 0 ? "コメントがあります" : "コメントはありません"}
           </p>
         </CardContent>
       </Card>

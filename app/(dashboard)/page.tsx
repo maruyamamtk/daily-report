@@ -18,6 +18,8 @@ import { SummaryCards } from "@/components/features/dashboard/summary-cards";
 import { QuickActions } from "@/components/features/dashboard/quick-actions";
 import { SubordinatesTable } from "@/components/features/dashboard/subordinates-table";
 import { getDashboardStats } from "@/lib/dashboard-stats";
+import { startOfWeek, endOfWeek, startOfDay, endOfDay, eachDayOfInterval, isWeekend } from "date-fns";
+import { ja } from "date-fns/locale";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -38,11 +40,19 @@ export default async function DashboardPage() {
     dashboardData = await getDashboardStats(user.employeeId, user.role);
   } catch (error) {
     console.error("Error fetching dashboard stats:", error);
+
+    // Calculate business days for fallback
+    const now = new Date();
+    const weekStart = startOfDay(startOfWeek(now, { locale: ja, weekStartsOn: 1 }));
+    const weekEnd = endOfDay(endOfWeek(now, { locale: ja, weekStartsOn: 1 }));
+    const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
+    const businessDaysThisWeek = days.filter(day => !isWeekend(day)).length;
+
     // Default stats if fetch fails
     dashboardData = {
       weeklyReportStatus: {
         submitted: 0,
-        total: 5,
+        total: businessDaysThisWeek,
         percentage: 0,
       },
       unreadCommentsCount: 0,
