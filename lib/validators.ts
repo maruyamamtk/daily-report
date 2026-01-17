@@ -152,3 +152,75 @@ export const updateCustomerSchema = z.object({
  */
 export type CreateCustomerInput = z.infer<typeof createCustomerSchema>;
 export type UpdateCustomerInput = z.infer<typeof updateCustomerSchema>;
+
+/**
+ * Employee creation validation schema
+ */
+export const createEmployeeSchema = z.object({
+  name: z
+    .string()
+    .min(1, "社員名を入力してください")
+    .max(50, "社員名は50文字以内で入力してください"),
+  email: z
+    .string()
+    .min(1, "メールアドレスを入力してください")
+    .email("正しいメールアドレス形式で入力してください")
+    .max(255, "メールアドレスは255文字以内で入力してください"),
+  password: z
+    .string()
+    .min(8, "パスワードは8文字以上で入力してください")
+    .regex(/^(?=.*[A-Za-z])(?=.*\d)/, "パスワードは英数字を含む必要があります"),
+  department: z
+    .string()
+    .min(1, "部署を入力してください")
+    .max(100, "部署は100文字以内で入力してください"),
+  position: z
+    .string()
+    .min(1, "役職を入力してください")
+    .max(100, "役職は100文字以内で入力してください"),
+  manager_id: z
+    .number()
+    .int()
+    .positive()
+    .optional(),
+});
+
+/**
+ * Employee update validation schema
+ */
+export const updateEmployeeSchema = z.object({
+  name: z
+    .string()
+    .min(1, "社員名を入力してください")
+    .max(50, "社員名は50文字以内で入力してください"),
+  email: z
+    .string()
+    .min(1, "メールアドレスを入力してください")
+    .email("正しいメールアドレス形式で入力してください")
+    .max(255, "メールアドレスは255文字以内で入力してください"),
+  password: z
+    .string()
+    .min(8, "パスワードは8文字以上で入力してください")
+    .regex(/^(?=.*[A-Za-z])(?=.*\d)/, "パスワードは英数字を含む必要があります")
+    .optional(),
+  department: z
+    .string()
+    .min(1, "部署を入力してください")
+    .max(100, "部署は100文字以内で入力してください"),
+  position: z
+    .string()
+    .min(1, "役職を入力してください")
+    .max(100, "役職は100文字以内で入力してください"),
+  manager_id: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .nullable(),
+});
+
+/**
+ * Type inference from employee schemas
+ */
+export type CreateEmployeeInput = z.infer<typeof createEmployeeSchema>;
+export type UpdateEmployeeInput = z.infer<typeof updateEmployeeSchema>;
