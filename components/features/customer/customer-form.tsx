@@ -4,12 +4,14 @@
  * Customer Form Component
  *
  * Form for creating and editing customer information.
+ * Uses React Hook Form + Zod for validation consistency.
  *
  * @see screen-specification.md - S-07 顧客登録・編集画面
  */
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,7 +25,12 @@ import {
 } from "@/components/ui/select";
 import { Save, X as XIcon } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import type { CreateCustomerInput, UpdateCustomerInput } from "@/lib/validators";
+import {
+  createCustomerSchema,
+  updateCustomerSchema,
+  type CreateCustomerInput,
+  type UpdateCustomerInput,
+} from "@/lib/validators";
 
 interface Employee {
   id: number;
@@ -52,82 +59,37 @@ export function CustomerForm({
   const router = useRouter();
   const { toast } = useToast();
 
-  // Form state
-  const [customerName, setCustomerName] = useState(initialData?.customer_name || "");
-  const [address, setAddress] = useState(initialData?.address || "");
-  const [phone, setPhone] = useState(initialData?.phone || "");
-  const [email, setEmail] = useState(initialData?.email || "");
-  const [assignedEmployeeId, setAssignedEmployeeId] = useState<number>(
-    initialData?.assigned_employee_id || 0
-  );
+  // Use React Hook Form with Zod validation
+  const schema = mode === "create" ? createCustomerSchema : updateCustomerSchema;
 
-  // Loading and error states
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<CreateCustomerInput | UpdateCustomerInput>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      customer_name: initialData?.customer_name || "",
+      address: initialData?.address || "",
+      phone: initialData?.phone || "",
+      email: initialData?.email || "",
+      assigned_employee_id: initialData?.assigned_employee_id || 0,
+    },
+  });
 
-  // Validate form
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    // Customer name validation
-    if (!customerName.trim()) {
-      newErrors.customer_name = "顧客名を入力してください";
-    } else if (customerName.length > 100) {
-      newErrors.customer_name = "顧客名は100文字以内で入力してください";
-    }
-
-    // Address validation
-    if (address && address.length > 200) {
-      newErrors.address = "住所は200文字以内で入力してください";
-    }
-
-    // Phone validation
-    if (phone && !/^[0-9\-]*$/.test(phone)) {
-      newErrors.phone = "電話番号は数字とハイフンのみで入力してください";
-    }
-    if (phone && phone.length > 20) {
-      newErrors.phone = "電話番号は20文字以内で入力してください";
-    }
-
-    // Email validation
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = "正しいメールアドレス形式で入力してください";
-    }
-    if (email && email.length > 255) {
-      newErrors.email = "メールアドレスは255文字以内で入力してください";
-    }
-
-    // Assigned employee validation
-    if (!assignedEmployeeId || assignedEmployeeId === 0) {
-      newErrors.assigned_employee_id = "担当営業を選択してください";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  const assignedEmployeeId = watch("assigned_employee_id");
 
   // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) {
-      toast({
-        title: "入力エラー",
-        description: "入力内容を確認してください",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-
+  const onSubmit = async (data: CreateCustomerInput | UpdateCustomerInput) => {
     try {
-      const data: CreateCustomerInput | UpdateCustomerInput = {
-        customer_name: customerName,
-        address: address || undefined,
-        phone: phone || undefined,
-        email: email || undefined,
-        assigned_employee_id: assignedEmployeeId,
+      // Trim email and phone before sending
+      const sanitizedData = {
+        ...data,
+        email: data.email?.trim() || undefined,
+        phone: data.phone?.trim() || undefined,
+        address: data.address?.trim() || undefined,
       };
 
       const url = mode === "create" ? "/api/customers" : `/api/customers/${customerId}`;
@@ -138,18 +100,11 @@ export function CustomerForm({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(sanitizedData),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        if (errorData.error?.details) {
-          const newErrors: Record<string, string> = {};
-          errorData.error.details.forEach((detail: { field: string; message: string }) => {
-            newErrors[detail.field] = detail.message;
-          });
-          setErrors(newErrors);
-        }
         throw new Error(errorData.error?.message || "Failed to save customer");
       }
 
@@ -167,8 +122,6 @@ export function CustomerForm({
         description: error instanceof Error ? error.message : "顧客情報の保存に失敗しました",
         variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -178,7 +131,7 @@ export function CustomerForm({
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit(onSubmit)}>
       <Card>
         <CardHeader>
           <CardTitle>
@@ -193,14 +146,17 @@ export function CustomerForm({
             </Label>
             <Input
               id="customer_name"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
+              {...register("customer_name")}
               placeholder="株式会社サンプル"
               maxLength={100}
               className={errors.customer_name ? "border-red-500" : ""}
+              aria-invalid={errors.customer_name ? "true" : "false"}
+              aria-describedby={errors.customer_name ? "customer_name-error" : undefined}
             />
             {errors.customer_name && (
-              <p className="text-sm text-red-500">{errors.customer_name}</p>
+              <p id="customer_name-error" className="text-sm text-red-500" role="alert">
+                {errors.customer_name.message}
+              </p>
             )}
           </div>
 
@@ -209,14 +165,17 @@ export function CustomerForm({
             <Label htmlFor="address">住所</Label>
             <Input
               id="address"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
+              {...register("address")}
               placeholder="東京都渋谷区..."
-              maxLength={200}
+              maxLength={255}
               className={errors.address ? "border-red-500" : ""}
+              aria-invalid={errors.address ? "true" : "false"}
+              aria-describedby={errors.address ? "address-error" : undefined}
             />
             {errors.address && (
-              <p className="text-sm text-red-500">{errors.address}</p>
+              <p id="address-error" className="text-sm text-red-500" role="alert">
+                {errors.address.message}
+              </p>
             )}
           </div>
 
@@ -225,14 +184,17 @@ export function CustomerForm({
             <Label htmlFor="phone">電話番号</Label>
             <Input
               id="phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              {...register("phone")}
               placeholder="03-1234-5678"
               maxLength={20}
               className={errors.phone ? "border-red-500" : ""}
+              aria-invalid={errors.phone ? "true" : "false"}
+              aria-describedby={errors.phone ? "phone-error" : undefined}
             />
             {errors.phone && (
-              <p className="text-sm text-red-500">{errors.phone}</p>
+              <p id="phone-error" className="text-sm text-red-500" role="alert">
+                {errors.phone.message}
+              </p>
             )}
           </div>
 
@@ -242,14 +204,17 @@ export function CustomerForm({
             <Input
               id="email"
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              {...register("email")}
               placeholder="contact@example.com"
               maxLength={255}
               className={errors.email ? "border-red-500" : ""}
+              aria-invalid={errors.email ? "true" : "false"}
+              aria-describedby={errors.email ? "email-error" : undefined}
             />
             {errors.email && (
-              <p className="text-sm text-red-500">{errors.email}</p>
+              <p id="email-error" className="text-sm text-red-500" role="alert">
+                {errors.email.message}
+              </p>
             )}
           </div>
 
@@ -260,11 +225,13 @@ export function CustomerForm({
             </Label>
             <Select
               value={assignedEmployeeId ? assignedEmployeeId.toString() : ""}
-              onValueChange={(value) => setAssignedEmployeeId(parseInt(value))}
+              onValueChange={(value) => setValue("assigned_employee_id", parseInt(value))}
             >
               <SelectTrigger
                 id="assigned_employee_id"
                 className={errors.assigned_employee_id ? "border-red-500" : ""}
+                aria-invalid={errors.assigned_employee_id ? "true" : "false"}
+                aria-describedby={errors.assigned_employee_id ? "assigned_employee_id-error" : undefined}
               >
                 <SelectValue placeholder="担当営業を選択してください" />
               </SelectTrigger>
@@ -277,7 +244,9 @@ export function CustomerForm({
               </SelectContent>
             </Select>
             {errors.assigned_employee_id && (
-              <p className="text-sm text-red-500">{errors.assigned_employee_id}</p>
+              <p id="assigned_employee_id-error" className="text-sm text-red-500" role="alert">
+                {errors.assigned_employee_id.message}
+              </p>
             )}
           </div>
 
