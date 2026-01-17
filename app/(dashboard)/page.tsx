@@ -1,108 +1,95 @@
 /**
- * Dashboard Page
+ * Dashboard Page (S-02)
  *
  * Main dashboard page showing overview and quick actions.
+ * Displays:
+ * - Weekly report submission status
+ * - Unread comments count
+ * - Subordinates' report status (for managers/admins)
+ * - Quick action buttons
+ *
+ * @see CLAUDE.md - 画面定義書 S-02
  */
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Users, Building2, TrendingUp } from "lucide-react";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { SummaryCards } from "@/components/features/dashboard/summary-cards";
+import { QuickActions } from "@/components/features/dashboard/quick-actions";
+import { SubordinatesTable } from "@/components/features/dashboard/subordinates-table";
+import { getDashboardStats } from "@/lib/dashboard-stats";
+import { startOfWeek, endOfWeek, startOfDay, endOfDay, eachDayOfInterval, isWeekend } from "date-fns";
+import { ja } from "date-fns/locale";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const session = await getServerSession(authOptions);
+
+  // Redirect to login if not authenticated
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  const user = session.user;
+
+  // Fetch dashboard stats directly using Prisma (Server Component)
+  let dashboardData;
+  try {
+    if (!user.employeeId) {
+      throw new Error("従業員情報が見つかりません");
+    }
+    dashboardData = await getDashboardStats(user.employeeId, user.role);
+  } catch (error) {
+    console.error("Error fetching dashboard stats:", error);
+
+    // Calculate business days for fallback
+    const now = new Date();
+    const weekStart = startOfDay(startOfWeek(now, { locale: ja, weekStartsOn: 1 }));
+    const weekEnd = endOfDay(endOfWeek(now, { locale: ja, weekStartsOn: 1 }));
+    const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
+    const businessDaysThisWeek = days.filter(day => !isWeekend(day)).length;
+
+    // Default stats if fetch fails
+    dashboardData = {
+      weeklyReportStatus: {
+        submitted: 0,
+        total: businessDaysThisWeek,
+        percentage: 0,
+      },
+      unreadCommentsCount: 0,
+      subordinatesReportStatus: [],
+    };
+  }
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">ダッシュボード</h1>
         <p className="text-muted-foreground">
-          営業日報システムへようこそ
+          {user.name}さん、営業日報システムへようこそ
         </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">今月の日報</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">12</div>
-            <p className="text-xs text-muted-foreground">
-              前月比 +2件
-            </p>
-          </CardContent>
-        </Card>
+      {/* Summary Cards */}
+      <SummaryCards
+        weeklyReportStatus={dashboardData.weeklyReportStatus}
+        unreadCommentsCount={dashboardData.unreadCommentsCount}
+        subordinatesReportStatus={dashboardData.subordinatesReportStatus}
+        userRole={user.role}
+      />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">訪問件数</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">45</div>
-            <p className="text-xs text-muted-foreground">
-              今月の訪問数
-            </p>
-          </CardContent>
-        </Card>
+      {/* Quick Actions */}
+      <QuickActions userRole={user.role} />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">担当顧客</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">23</div>
-            <p className="text-xs text-muted-foreground">
-              アクティブ顧客
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">達成率</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">87%</div>
-            <p className="text-xs text-muted-foreground">
-              月間目標
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle>最近の活動</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="h-2 w-2 rounded-full bg-primary" />
-              <div className="flex-1">
-                <p className="text-sm font-medium">日報を作成しました</p>
-                <p className="text-xs text-muted-foreground">2時間前</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="h-2 w-2 rounded-full bg-primary" />
-              <div className="flex-1">
-                <p className="text-sm font-medium">顧客訪問を記録しました</p>
-                <p className="text-xs text-muted-foreground">5時間前</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="h-2 w-2 rounded-full bg-muted" />
-              <div className="flex-1">
-                <p className="text-sm font-medium">新規顧客を登録しました</p>
-                <p className="text-xs text-muted-foreground">1日前</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Subordinates Report Table (Manager/Admin only) */}
+      {(user.role === "上長" || user.role === "管理者") &&
+        dashboardData.subordinatesReportStatus &&
+        dashboardData.subordinatesReportStatus.length > 0 && (
+          <SubordinatesTable
+            subordinates={dashboardData.subordinatesReportStatus}
+            userRole={user.role}
+          />
+        )}
     </div>
   );
 }
