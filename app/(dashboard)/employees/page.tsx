@@ -26,7 +26,10 @@ export default async function EmployeesPage() {
     redirect("/");
   }
 
-  // Fetch employees
+  // Default limit to match API default
+  const defaultLimit = 20;
+
+  // Fetch employees with default pagination
   const employees = await prisma.employee.findMany({
     include: {
       manager: {
@@ -39,12 +42,17 @@ export default async function EmployeesPage() {
     orderBy: {
       id: "asc",
     },
-    take: 100,
+    take: defaultLimit,
   });
 
-  // Get unique departments for filter
+  // Get unique departments for filter - fetch all for dropdown
+  const allEmployees = await prisma.employee.findMany({
+    select: {
+      department: true,
+    },
+  });
   const departments = Array.from(
-    new Set(employees.map((emp) => emp.department))
+    new Set(allEmployees.map((emp) => emp.department))
   ).sort();
 
   // Format employee data
@@ -64,9 +72,9 @@ export default async function EmployeesPage() {
   const totalCount = await prisma.employee.count();
   const meta = {
     current_page: 1,
-    total_pages: Math.ceil(totalCount / 100),
+    total_pages: Math.ceil(totalCount / defaultLimit),
     total_count: totalCount,
-    limit: 100,
+    limit: defaultLimit,
   };
 
   return (

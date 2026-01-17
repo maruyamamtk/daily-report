@@ -31,6 +31,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/components/ui/use-toast";
+import {
   Edit,
   Trash2,
   Search,
@@ -38,6 +49,7 @@ import {
   Plus,
   ChevronLeft,
   ChevronRight,
+  AlertCircle,
 } from "lucide-react";
 
 export interface EmployeeListItem {
@@ -71,6 +83,7 @@ export function EmployeeList({
   departments,
 }: EmployeeListProps) {
   const router = useRouter();
+  const { toast } = useToast();
 
   // State for search filters
   const [name, setName] = useState("");
@@ -81,12 +94,24 @@ export function EmployeeList({
   const [employees, setEmployees] = useState<EmployeeListItem[]>(initialEmployees);
   const [meta, setMeta] = useState<EmployeeListMeta>(initialMeta);
 
+  // State for error handling
+  const [error, setError] = useState<string | null>(null);
+
+  // State for delete confirmation dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [employeeToDelete, setEmployeeToDelete] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Handle search
   const handleSearch = async (page: number = 1) => {
     setIsSearching(true);
+    setError(null);
 
     const params = new URLSearchParams();
-    if (name) params.set("name", name);
+    if (name.trim()) params.set("name", name.trim());
     if (department) params.set("department", department);
     params.set("page", page.toString());
     params.set("limit", meta.limit.toString());
@@ -101,7 +126,13 @@ export function EmployeeList({
       setEmployees(result.data);
       setMeta(result.meta);
     } catch (error) {
-      console.error("Error fetching employees:", error);
+      const errorMessage = "社員情報の取得に失敗しました。もう一度お試しください。";
+      setError(errorMessage);
+      toast({
+        variant: "destructive",
+        title: "エラー",
+        description: errorMessage,
+      });
     } finally {
       setIsSearching(false);
     }
@@ -125,32 +156,58 @@ export function EmployeeList({
     router.push(`/employees/${employeeId}/edit`);
   };
 
-  // Handle delete employee
-  const handleDelete = async (employeeId: number) => {
-    if (!confirm("この社員を削除してもよろしいですか?")) {
-      return;
-    }
+  // Handle delete employee - opens confirmation dialog
+  const handleDelete = (employeeId: number, employeeName: string) => {
+    setEmployeeToDelete({ id: employeeId, name: employeeName });
+    setDeleteDialogOpen(true);
+  };
+
+  // Confirm and execute delete
+  const confirmDelete = async () => {
+    if (!employeeToDelete) return;
+
+    setIsDeleting(true);
+    setError(null);
 
     try {
-      const response = await fetch(`/api/employees/${employeeId}`, {
+      const response = await fetch(`/api/employees/${employeeToDelete.id}`, {
         method: "DELETE",
       });
 
       if (!response.ok) {
         const errorData = await response.json();
         if (errorData.error?.code === "EMPLOYEE_IN_USE") {
-          alert("この社員は日報や顧客で使用されているため削除できません");
+          toast({
+            variant: "destructive",
+            title: "削除できません",
+            description: "この社員は日報や顧客で使用されているため削除できません",
+          });
         } else {
           throw new Error("Failed to delete employee");
         }
         return;
       }
 
+      // Success
+      toast({
+        title: "削除しました",
+        description: `${employeeToDelete.name}を削除しました`,
+      });
+
       // Refresh the list
       handleSearch(meta.current_page);
     } catch (error) {
-      console.error("Error deleting employee:", error);
-      alert("社員の削除に失敗しました");
+      const errorMessage = "社員の削除に失敗しました。もう一度お試しください。";
+      setError(errorMessage);
+      toast({
+        variant: "destructive",
+        title: "エラー",
+        description: errorMessage,
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setEmployeeToDelete(null);
     }
   };
 
@@ -270,6 +327,7 @@ export function EmployeeList({
                               size="sm"
                               onClick={() => handleEdit(employee.employee_id)}
                               className="gap-1"
+                              aria-label={`${employee.name}を編集`}
                             >
                               <Edit className="h-4 w-4" />
                               編集
@@ -277,8 +335,9 @@ export function EmployeeList({
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDelete(employee.employee_id)}
+                              onClick={() => handleDelete(employee.employee_id, employee.name)}
                               className="gap-1 text-destructive hover:text-destructive"
+                              aria-label={`${employee.name}を削除`}
                             >
                               <Trash2 className="h-4 w-4" />
                               削除
@@ -333,6 +392,48 @@ export function EmployeeList({
           )}
         </CardContent>
       </Card>
+
+      {/* Error Display */}
+      {error && (
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="h-5 w-5" />
+              <p>{error}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>社員を削除しますか?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {employeeToDelete && (
+                <>
+                  <strong>{employeeToDelete.name}</strong>を削除しようとしています。
+                  <br />
+                  この操作は取り消せません。本当に削除してもよろしいですか?
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>
+              キャンセル
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "削除中..." : "削除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
