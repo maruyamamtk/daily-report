@@ -10,7 +10,7 @@
  */
 
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,8 +77,36 @@ export function EmployeeForm({
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
-  // Use different schemas for create and edit modes
-  const schema = mode === "create" ? createEmployeeFormSchema : updateEmployeeSchema;
+  // Use different forms based on mode to maintain type safety
+  const createForm = useForm<CreateEmployeeFormInput>({
+    resolver: zodResolver(createEmployeeFormSchema),
+    defaultValues: {
+      name: initialData?.name || "",
+      email: initialData?.email || "",
+      password: "",
+      password_confirm: "",
+      department: initialData?.department || "",
+      position: initialData?.position || "",
+      manager_id: initialData?.manager_id || undefined,
+    },
+  });
+
+  const editForm = useForm<UpdateEmployeeInput>({
+    resolver: zodResolver(updateEmployeeSchema),
+    defaultValues: {
+      name: initialData?.name || "",
+      email: initialData?.email || "",
+      password: "",
+      department: initialData?.department || "",
+      position: initialData?.position || "",
+      manager_id: initialData?.manager_id || undefined,
+    },
+  });
+
+  // Select the appropriate form based on mode
+  const form = (mode === "create" ? createForm : editForm) as UseFormReturn<
+    CreateEmployeeFormInput | UpdateEmployeeInput
+  >;
 
   const {
     register,
@@ -86,28 +114,22 @@ export function EmployeeForm({
     setValue,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<CreateEmployeeFormInput | UpdateEmployeeInput>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      name: initialData?.name || "",
-      email: initialData?.email || "",
-      password: "",
-      password_confirm: mode === "create" ? "" : undefined,
-      department: initialData?.department || "",
-      position: initialData?.position || "",
-      manager_id: initialData?.manager_id || undefined,
-    },
-  });
+  } = form;
 
   const selectedManagerId = watch("manager_id");
   const selectedDepartment = watch("department");
   const selectedPosition = watch("position");
 
-  // Handle form submission
+  // Handle form submission with type-safe handling
   const onSubmit = async (data: CreateEmployeeFormInput | UpdateEmployeeInput) => {
     try {
-      // Remove password_confirm from the data
-      const { password_confirm, ...submitData } = data as CreateEmployeeFormInput;
+      // Create a copy for submission
+      const submitData: any = { ...data };
+
+      // Remove password_confirm from the data if it exists (create mode only)
+      if ("password_confirm" in submitData) {
+        delete submitData.password_confirm;
+      }
 
       // If password is empty in edit mode, remove it
       if (mode === "edit" && !submitData.password) {
@@ -227,6 +249,7 @@ export function EmployeeForm({
                     size="sm"
                     className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "パスワードを隠す" : "パスワードを表示"}
                   >
                     {showPassword ? "隠す" : "表示"}
                   </Button>
@@ -246,11 +269,23 @@ export function EmployeeForm({
                   <Input
                     id="password_confirm"
                     type={showPasswordConfirm ? "text" : "password"}
-                    {...register("password_confirm")}
+                    {...(mode === "create"
+                      ? (createForm as UseFormReturn<CreateEmployeeFormInput>).register("password_confirm")
+                      : {})}
                     placeholder="パスワードを再入力"
-                    className={errors.password_confirm ? "border-red-500" : ""}
-                    aria-invalid={errors.password_confirm ? "true" : "false"}
-                    aria-describedby={errors.password_confirm ? "password_confirm-error" : undefined}
+                    className={
+                      "password_confirm" in errors && errors.password_confirm
+                        ? "border-red-500"
+                        : ""
+                    }
+                    aria-invalid={
+                      "password_confirm" in errors && errors.password_confirm ? "true" : "false"
+                    }
+                    aria-describedby={
+                      "password_confirm" in errors && errors.password_confirm
+                        ? "password_confirm-error"
+                        : undefined
+                    }
                   />
                   <Button
                     type="button"
@@ -258,11 +293,12 @@ export function EmployeeForm({
                     size="sm"
                     className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                     onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
+                    aria-label={showPasswordConfirm ? "パスワードを隠す" : "パスワードを表示"}
                   >
                     {showPasswordConfirm ? "隠す" : "表示"}
                   </Button>
                 </div>
-                {errors.password_confirm && (
+                {"password_confirm" in errors && errors.password_confirm && (
                   <p id="password_confirm-error" className="text-sm text-red-500" role="alert">
                     {errors.password_confirm.message}
                   </p>
@@ -291,6 +327,7 @@ export function EmployeeForm({
                   size="sm"
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "パスワードを隠す" : "パスワードを表示"}
                 >
                   {showPassword ? "隠す" : "表示"}
                 </Button>
