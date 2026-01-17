@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
 import { createCustomerSchema } from "@/lib/validators";
@@ -19,6 +20,8 @@ import { createCustomerSchema } from "@/lib/validators";
  * Query parameters:
  * - page: Page number (default: 1)
  * - limit: Items per page (default: 100, max: 500)
+ * - customer_name: Filter by customer name (partial match)
+ * - employee_id: Filter by assigned employee ID
  *
  * Permissions:
  * - All authenticated users can view customers
@@ -33,9 +36,48 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get("page") || "1");
     const limit = Math.min(parseInt(searchParams.get("limit") || "100"), 500);
+    const customerName = searchParams.get("customer_name");
+    const employeeId = searchParams.get("employee_id");
 
-    // Get total count
-    const totalCount = await prisma.customer.count();
+    // Validate search parameters
+    if (customerName && customerName.length > 100) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "検索文字列が長すぎます（最大100文字）",
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    // Build where clause with proper typing
+    const where: Prisma.CustomerWhereInput = {};
+    if (customerName) {
+      where.customerName = {
+        contains: customerName,
+        mode: "insensitive",
+      };
+    }
+    if (employeeId) {
+      const parsedEmployeeId = parseInt(employeeId, 10);
+      if (isNaN(parsedEmployeeId)) {
+        return NextResponse.json(
+          {
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "担当営業IDが不正です",
+            },
+          },
+          { status: 400 }
+        );
+      }
+      where.assignedEmployeeId = parsedEmployeeId;
+    }
+
+    // Get total count with filters
+    const totalCount = await prisma.customer.count({ where });
 
     // Calculate pagination
     const totalPages = Math.ceil(totalCount / limit);
@@ -43,6 +85,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch customers with assigned employee
     const customers = await prisma.customer.findMany({
+      where,
       include: {
         assignedEmployee: {
           select: {
